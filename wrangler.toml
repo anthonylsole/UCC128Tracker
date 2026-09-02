@@ -1,0 +1,18 @@
+name = "ucc128-tracker"
+compatibility_date = "2026-08-28"
+pages_build_output_dir = "public"
+
+# Fill in database_id after running:
+#   wrangler d1 create ucc128-tracker-db
+# (see GRANULAR_SETUP_GUIDE.md, Phase 3)
+[[d1_databases]]
+binding = "DB"
+database_name = "ucc128-tracker-db"
+database_id = "PASTE_YOUR_DATABASE_ID_HERE"
+
+# Created via:
+#   wrangler r2 bucket create ucc128-label-samples
+# (see GRANULAR_SETUP_GUIDE.md, Phase 4)
+[[r2_buckets]]
+binding = "SAMPLES"
+bucket_name = "ucc128-label-samples"

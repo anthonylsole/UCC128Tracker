@@ -1,4 +1,4 @@
-import { listRows, createRow, updateRow, bootstrapRows } from "./rows.js";
+import { listRows, createRow, updateRow, bootstrapRows, bulkUpdateRows } from "./rows.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -27,6 +27,10 @@ export default {
       if (path === "/api/bootstrap" && method === "POST") {
         const body = await request.json();
         return await bootstrapRows(env, body);
+      }
+      if (path === "/api/rows/bulk-update" && method === "POST") {
+        const body = await request.json();
+        return await bulkUpdateRows(env, body);
       }
 
       // Anything that isn't an API route falls through to the static site.

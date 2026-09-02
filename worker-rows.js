@@ -92,3 +92,30 @@ export async function bootstrapRows(env, rows) {
   await env.DB.batch(stmts);
   return Response.json({ inserted: stmts.length });
 }
+
+export async function bulkUpdateRows(env, rows) {
+  if (!Array.isArray(rows)) {
+    return Response.json({ error: "Expected an array of rows" }, { status: 400 });
+  }
+  const stmts = [];
+  for (const r of rows) {
+    if (!r || !r.id) continue;
+    const sets = [];
+    const values = [];
+    for (const [jsKey, col] of Object.entries(FIELD_MAP)) {
+      if (Object.prototype.hasOwnProperty.call(r, jsKey)) {
+        sets.push(`${col} = ?`);
+        values.push(r[jsKey]);
+      }
+    }
+    if (!sets.length) continue;
+    values.push(r.id);
+    stmts.push(env.DB.prepare(`UPDATE tracker_rows SET ${sets.join(",")} WHERE id = ?`).bind(...values));
+  }
+  if (!stmts.length) {
+    return Response.json({ error: "No valid rows with an id and recognized fields were found" }, { status: 400 });
+  }
+  const results = await env.DB.batch(stmts);
+  const updated = results.reduce((sum, r) => sum + (r.meta && r.meta.changes || 0), 0);
+  return Response.json({ attempted: stmts.length, updated });
+}

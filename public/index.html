@@ -139,6 +139,8 @@ tbody tr.row-approved td{background:#E8F8EC;}
     </div>
     <div class="topbar-actions">
       <button class="btn btn-ghost-dark btn-sm" id="fullscreen-btn" title="Toggle fullscreen">&#x26F6; Fullscreen</button>
+      <label class="btn btn-ghost-dark btn-sm" for="importFile">Import data</label>
+      <input type="file" id="importFile" accept="application/json" class="hidden">
       <button class="btn btn-accent btn-sm" onclick="exportData()">Export data</button>
     </div>
   </div>
@@ -744,6 +746,39 @@ function exportData(){
   URL.revokeObjectURL(url);
   showToast('Data exported');
 }
+
+/* Import (writes changes back to the live database) */
+document.getElementById('importFile').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  let parsed;
+  try{
+    const text = await file.text();
+    parsed = JSON.parse(text);
+  }catch(err){
+    alert('Could not read that file. Please choose a JSON export from this tracker.');
+    e.target.value = '';
+    return;
+  }
+  if(!Array.isArray(parsed)){
+    alert("That file doesn't look like a tracker export (expected a JSON array of rows).");
+    e.target.value = '';
+    return;
+  }
+  try{
+    const result = await apiPost('/api/rows/bulk-update', parsed);
+    records = await apiGet('/api/rows');
+    switchTab(currentTab);
+    if(result.updated < result.attempted){
+      showToast(`Imported ${result.updated} of ${result.attempted} rows \u2014 some rows didn't match an existing id`);
+    } else {
+      showToast(`Imported ${result.updated} row${result.updated===1?'':'s'}`);
+    }
+  }catch(err){
+    showToast('Import failed \u2014 check your connection and try again');
+  }
+  e.target.value = '';
+});
 
 /* Fullscreen */
 (function(){

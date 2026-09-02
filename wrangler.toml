@@ -1,6 +1,10 @@
 name = "ucc128-tracker"
 compatibility_date = "2026-08-28"
-pages_build_output_dir = "public"
+main = "worker/index.js"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
 
 # Fill in database_id after running:
 #   wrangler d1 create ucc128-tracker-db

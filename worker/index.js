@@ -1,7 +1,14 @@
 import { listRows, createRow, updateRow, bootstrapRows, bulkUpdateRows } from "./rows.js";
+import { listMappings, updateMapping, bootstrapMappings } from "./mappings.js";
+import { sampleKey, listSamples, getSample, putSample, deleteSample } from "./samples.js";
+import { checkAuth, unauthorizedResponse } from "./auth.js";
 
 export default {
   async fetch(request, env, ctx) {
+    if (!checkAuth(request, env)) {
+      return unauthorizedResponse();
+    }
+
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
@@ -9,7 +16,14 @@ export default {
     try {
       if (path === "/api/ping" && method === "GET") {
         const result = await env.DB.prepare("SELECT COUNT(*) as count FROM tracker_rows").first();
-        return Response.json({ status: "ok", rowCount: result.count });
+        return Response.json({
+          status: "ok",
+          rowCount: result.count,
+          // Temporary diagnostic -- tells us definitively whether the Worker sees
+          // a real, non-empty SITE_PASSWORD value, without ever revealing it.
+          sitePasswordConfigured: Boolean(env.SITE_PASSWORD),
+          sitePasswordLength: env.SITE_PASSWORD ? env.SITE_PASSWORD.length : 0,
+        });
       }
 
       if (path === "/api/rows" && method === "GET") {
@@ -33,6 +47,32 @@ export default {
         return await bulkUpdateRows(env, body);
       }
 
+      if (path === "/api/mappings" && method === "GET") {
+        return await listMappings(env);
+      }
+      if (path === "/api/mappings/bootstrap" && method === "POST") {
+        const body = await request.json();
+        return await bootstrapMappings(env, body);
+      }
+      if (path.startsWith("/api/mappings/") && method === "PATCH") {
+        const id = Number(path.slice("/api/mappings/".length));
+        const body = await request.json();
+        return await updateMapping(env, id, body);
+      }
+
+      if (path === "/api/samples" && method === "GET") {
+        return await listSamples(env);
+      }
+      const sampleMatch = path.match(/^\/api\/samples\/(movex|intraone)\/(.+)$/);
+      if (sampleMatch) {
+        const [, type, encodedTemplate] = sampleMatch;
+        const template = decodeURIComponent(encodedTemplate);
+        const key = sampleKey(type, template);
+        if (method === "GET") return await getSample(env, key);
+        if (method === "PUT") return await putSample(env, key, request);
+        if (method === "DELETE") return await deleteSample(env, key);
+      }
+
       // Anything that isn't an API route falls through to the static site.
       return env.ASSETS.fetch(request);
     } catch (err) {
@@ -40,3 +80,5 @@ export default {
     }
   },
 };
+
+

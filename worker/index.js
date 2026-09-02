@@ -1,11 +1,11 @@
 import { listRows, createRow, updateRow, bootstrapRows, bulkUpdateRows } from "./rows.js";
 import { listMappings, updateMapping, bootstrapMappings } from "./mappings.js";
 import { sampleKey, listSamples, getSample, putSample, deleteSample } from "./samples.js";
-import { checkAuth, unauthorizedResponse } from "./auth.js";
+import { checkAuth, unauthorizedResponse, resolveSitePasswordForDiagnostics } from "./auth.js";
 
 export default {
   async fetch(request, env, ctx) {
-    if (!checkAuth(request, env)) {
+    if (!(await checkAuth(request, env))) {
       return unauthorizedResponse();
     }
 
@@ -16,13 +16,14 @@ export default {
     try {
       if (path === "/api/ping" && method === "GET") {
         const result = await env.DB.prepare("SELECT COUNT(*) as count FROM tracker_rows").first();
+        const resolvedPassword = await resolveSitePasswordForDiagnostics(env);
         return Response.json({
           status: "ok",
           rowCount: result.count,
           // Temporary diagnostic -- tells us definitively whether the Worker sees
           // a real, non-empty SITE_PASSWORD value, without ever revealing it.
-          sitePasswordConfigured: Boolean(env.SITE_PASSWORD),
-          sitePasswordLength: env.SITE_PASSWORD ? env.SITE_PASSWORD.length : 0,
+          sitePasswordConfigured: Boolean(resolvedPassword),
+          sitePasswordLength: resolvedPassword ? resolvedPassword.length : 0,
         });
       }
 

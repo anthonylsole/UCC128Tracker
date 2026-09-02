@@ -218,7 +218,7 @@ const YN_OPTIONS = ["","Yes","No"];
 
 let records = [];
 let currentTab = 'dashboard';
-let trackerFilters = { search:'', wave:'', template:'', status:'', customer:'' };
+let trackerFilters = { search:'', wave:'', template:'', status:'', customer:'', testingRequired:'' };
 let trackerSort = { key:'account', dir:'asc' };
 let summarySearchTerm = '';
 let templateDetailView = null;
@@ -317,7 +317,7 @@ function switchTab(tab, presetFilter){
   renderNav();
   if(tab==='dashboard') renderDashboard();
   if(tab==='tracker'){
-    if(presetFilter) trackerFilters = {search:'', wave:'', template:'', status:'', customer:'', ...presetFilter};
+    if(presetFilter) trackerFilters = {search:'', wave:'', template:'', status:'', customer:'', testingRequired:'', ...presetFilter};
     renderTracker();
   }
   if(tab==='byCustomer') renderSummary('customer','pageByCustomer','Customer','By Customer','Testing progress rolled up by customer account.');
@@ -473,6 +473,10 @@ function getFilteredSortedRecords(){
     if(f.wave && r.wave!==f.wave) return false;
     if(f.template && r.template!==f.template) return false;
     if(f.customer && r.customer!==f.customer) return false;
+    if(f.testingRequired){
+      const val = f.testingRequired === '__BLANK__' ? '' : f.testingRequired;
+      if((r.testingRequired||'') !== val) return false;
+    }
     if(f.status){
       const eff = effectiveStatus(r);
       if(f.status==='Approved' ? !isApprovedEffective(eff) : eff!==f.status) return false;
@@ -495,6 +499,37 @@ function getFilteredSortedRecords(){
   return list;
 }
 
+// Computes the records matching every ACTIVE filter except the one named in
+// `excludeKey` -- this is what lets each dropdown narrow to only the values
+// that actually make sense given everything else currently selected (e.g.
+// picking a Go-Live Wave narrows the Template dropdown to just the templates
+// that exist within that wave), rather than every dropdown always showing
+// every possible value regardless of context.
+function getCascadedSubset(excludeKey){
+  const f = trackerFilters;
+  return records.filter(r=>{
+    if(excludeKey!=='wave' && f.wave && r.wave!==f.wave) return false;
+    if(excludeKey!=='template' && f.template && r.template!==f.template) return false;
+    if(excludeKey!=='customer' && f.customer && r.customer!==f.customer) return false;
+    if(excludeKey!=='testingRequired' && f.testingRequired){
+      const val = f.testingRequired === '__BLANK__' ? '' : f.testingRequired;
+      if((r.testingRequired||'') !== val) return false;
+    }
+    if(excludeKey!=='status' && f.status){
+      const eff = effectiveStatus(r);
+      if(f.status==='Approved' ? !isApprovedEffective(eff) : eff!==f.status) return false;
+    }
+    if(f.search){
+      const s = f.search.toLowerCase();
+      if(!(r.account.toLowerCase().includes(s) || r.customer.toLowerCase().includes(s) || r.template.toLowerCase().includes(s))) return false;
+    }
+    return true;
+  });
+}
+function cascadedOptions(field, excludeKey){
+  return [...new Set(getCascadedSubset(excludeKey).map(r=>r[field]).filter(Boolean))].sort();
+}
+
 function textCell(r, field){ return `<input class="cell-input" type="text" data-field="${field}" value="${escapeHtml(r[field])}">`; }
 function dateCell(r, field){ return `<input class="cell-date" type="date" data-field="${field}" value="${r[field]||''}">`; }
 function selectCell(r, field, options, allowBlank){
@@ -511,8 +546,12 @@ function renderTracker(){
   const prevWrap = document.querySelector('#pageTracker .table-wrap');
   const savedScrollLeft = prevWrap ? prevWrap.scrollLeft : 0;
 
-  const waves = uniqueSorted('wave');
-  const templates = uniqueSorted('template');
+  const waves = cascadedOptions('wave', 'wave');
+  const templates = cascadedOptions('template', 'template');
+  const testingRequiredSubset = getCascadedSubset('testingRequired');
+  const hasYes = testingRequiredSubset.some(r=>r.testingRequired==='Yes');
+  const hasNo = testingRequiredSubset.some(r=>r.testingRequired==='No');
+  const hasBlank = testingRequiredSubset.some(r=>!r.testingRequired);
   const filtered = getFilteredSortedRecords();
 
   const headHtml = TRACKER_COLUMNS.map(c=>{
@@ -548,6 +587,7 @@ function renderTracker(){
   if(trackerFilters.search) chips.push({k:'search', label:`Search: "${trackerFilters.search}"`});
   if(trackerFilters.wave) chips.push({k:'wave', label:`Wave: ${trackerFilters.wave}`});
   if(trackerFilters.template) chips.push({k:'template', label:`Template: ${trackerFilters.template}`});
+  if(trackerFilters.testingRequired) chips.push({k:'testingRequired', label:`Testing Req.: ${trackerFilters.testingRequired==='__BLANK__'?'Not Set':trackerFilters.testingRequired}`});
   if(trackerFilters.status) chips.push({k:'status', label:`Status: ${trackerFilters.status}`});
   if(trackerFilters.customer) chips.push({k:'customer', label:`Customer: ${trackerFilters.customer}`});
   const chipsHtml = chips.map(c=>`<span class="chip">${escapeHtml(c.label)}<button class="chip-x" data-k="${c.k}">&times;</button></span>`).join('');
@@ -559,6 +599,12 @@ function renderTracker(){
       <input class="tf-input tf-search" id="f-search" placeholder="Search account, customer, or template&hellip;" value="${escapeHtml(trackerFilters.search)}">
       <select class="tf-select" id="f-wave"><option value="">All Go-Live Waves</option>${waves.map(w=>`<option value="${escapeHtml(w)}" ${trackerFilters.wave===w?'selected':''}>${escapeHtml(w)}</option>`).join('')}</select>
       <select class="tf-select" id="f-template"><option value="">All Templates</option>${templates.map(t=>`<option value="${escapeHtml(t)}" ${trackerFilters.template===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select>
+      <select class="tf-select" id="f-testing-required">
+        <option value="">All (Testing Req.)</option>
+        ${hasYes ? `<option value="Yes" ${trackerFilters.testingRequired==='Yes'?'selected':''}>Yes</option>` : ''}
+        ${hasNo ? `<option value="No" ${trackerFilters.testingRequired==='No'?'selected':''}>No</option>` : ''}
+        ${hasBlank ? `<option value="__BLANK__" ${trackerFilters.testingRequired==='__BLANK__'?'selected':''}>Not Set</option>` : ''}
+      </select>
       <select class="tf-select" id="f-status"><option value="">All Statuses</option>${STATUS_OPTIONS.map(s=>`<option value="${s}" ${trackerFilters.status===s?'selected':''}>${s}</option>`).join('')}</select>
       <button class="btn btn-outline btn-sm" id="f-clear" ${chips.length?'':'disabled'}>Clear all filters</button>
       <div class="toolbar-spacer"></div>
@@ -589,8 +635,9 @@ function bindTrackerEvents(){
   page.querySelector('#f-search').addEventListener('input', e=>{ trackerFilters.search = e.target.value; renderTracker(); });
   page.querySelector('#f-wave').addEventListener('change', e=>{ trackerFilters.wave = e.target.value; renderTracker(); });
   page.querySelector('#f-template').addEventListener('change', e=>{ trackerFilters.template = e.target.value; renderTracker(); });
+  page.querySelector('#f-testing-required').addEventListener('change', e=>{ trackerFilters.testingRequired = e.target.value; renderTracker(); });
   page.querySelector('#f-status').addEventListener('change', e=>{ trackerFilters.status = e.target.value; renderTracker(); });
-  page.querySelector('#f-clear').addEventListener('click', ()=>{ trackerFilters = {search:'',wave:'',template:'',status:'',customer:''}; renderTracker(); });
+  page.querySelector('#f-clear').addEventListener('click', ()=>{ trackerFilters = {search:'',wave:'',template:'',status:'',customer:'',testingRequired:''}; renderTracker(); });
   page.querySelector('#copy-email-btn').addEventListener('click', copyFilteredViewForEmail);
   page.querySelectorAll('.chip-x').forEach(btn=> btn.addEventListener('click', ()=>{ trackerFilters[btn.dataset.k] = ''; renderTracker(); }));
   page.querySelectorAll('thead th[data-sortkey]').forEach(th=>{
@@ -639,6 +686,14 @@ function bindTrackerEvents(){
       rec.wave = newWave;
       renderTracker();
       try{ await apiPatch(`/api/rows/${rec.id}`, {wave:newWave}); }
+      catch(err){ showToast('Save failed \u2014 check your connection'); }
+      return;
+    }
+
+    if(field==='testingRequired'){
+      rec[field] = e.target.value;
+      renderTracker(); // refresh so the Testing Req. filter dropdown reflects this change immediately
+      try{ await apiPatch(`/api/rows/${rec.id}`, {testingRequired: rec.testingRequired}); }
       catch(err){ showToast('Save failed \u2014 check your connection'); }
       return;
     }

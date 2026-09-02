@@ -1,4 +1,4 @@
-name = "ucc128-tracker"
+name = "ucc128tracker"
 compatibility_date = "2026-08-28"
 main = "worker/index.js"
 

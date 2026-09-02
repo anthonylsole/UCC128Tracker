@@ -12,7 +12,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "ucc128-tracker-db"
-database_id = "PASTE_YOUR_DATABASE_ID_HERE"
+database_id = "5e483b49-c5e1-45c7-96d5-e1e9046834ca"
 
 # Created via:
 #   wrangler r2 bucket create ucc128-label-samples

@@ -16,7 +16,14 @@ export default {
     try {
       if (path === "/api/ping" && method === "GET") {
         const result = await env.DB.prepare("SELECT COUNT(*) as count FROM tracker_rows").first();
-        return Response.json({ status: "ok", rowCount: result.count });
+        return Response.json({
+          status: "ok",
+          rowCount: result.count,
+          // Temporary diagnostic -- tells us definitively whether the Worker sees
+          // a real, non-empty SITE_PASSWORD value, without ever revealing it.
+          sitePasswordConfigured: Boolean(env.SITE_PASSWORD),
+          sitePasswordLength: env.SITE_PASSWORD ? env.SITE_PASSWORD.length : 0,
+        });
       }
 
       if (path === "/api/rows" && method === "GET") {

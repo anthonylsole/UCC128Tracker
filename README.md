@@ -27,7 +27,7 @@ wrangler pages dev public
 wrangler pages deploy public --project-name=ucc128-tracker
 ```
 
-## Project structure
+## Project structure 
 
 ```
 ucc128-tracker/

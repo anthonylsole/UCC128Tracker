@@ -177,18 +177,21 @@ const TABS = [
 /* ---------------- API layer ---------------- */
 async function apiGet(url){
   const res = await fetch(url);
-  if(!res.ok) throw new Error('GET ' + url + ' failed: ' + res.status);
-  return res.json();
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error || ('GET ' + url + ' failed: ' + res.status));
+  return data;
 }
 async function apiPost(url, body){
   const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  if(!res.ok) throw new Error('POST ' + url + ' failed: ' + res.status);
-  return res.json();
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error || ('POST ' + url + ' failed: ' + res.status));
+  return data;
 }
 async function apiPatch(url, body){
   const res = await fetch(url, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  if(!res.ok) throw new Error('PATCH ' + url + ' failed: ' + res.status);
-  return res.json();
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error || ('PATCH ' + url + ' failed: ' + res.status));
+  return data;
 }
 
 /* ---------------- helpers ---------------- */
@@ -770,12 +773,12 @@ document.getElementById('importFile').addEventListener('change', async e=>{
     records = await apiGet('/api/rows');
     switchTab(currentTab);
     if(result.updated < result.attempted){
-      showToast(`Imported ${result.updated} of ${result.attempted} rows \u2014 some rows didn't match an existing id`);
+      showToast(`Imported ${result.updated} of ${result.attempted} rows \u2014 some didn't match an existing account + template`);
     } else {
       showToast(`Imported ${result.updated} row${result.updated===1?'':'s'}`);
     }
   }catch(err){
-    showToast('Import failed \u2014 check your connection and try again');
+    showToast('Import failed: ' + (err.message || 'unknown error'));
   }
   e.target.value = '';
 });

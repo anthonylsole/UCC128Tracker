@@ -97,25 +97,73 @@ export async function bulkUpdateRows(env, rows) {
   if (!Array.isArray(rows)) {
     return Response.json({ error: "Expected an array of rows" }, { status: 400 });
   }
-  const stmts = [];
-  for (const r of rows) {
-    if (!r || !r.id) continue;
+
+  function buildSets(r, excludeKeys) {
     const sets = [];
     const values = [];
     for (const [jsKey, col] of Object.entries(FIELD_MAP)) {
+      if (excludeKeys.includes(jsKey)) continue;
       if (Object.prototype.hasOwnProperty.call(r, jsKey)) {
         sets.push(`${col} = ?`);
         values.push(r[jsKey]);
       }
     }
-    if (!sets.length) continue;
-    values.push(r.id);
-    stmts.push(env.DB.prepare(`UPDATE tracker_rows SET ${sets.join(",")} WHERE id = ?`).bind(...values));
+    return { sets, values };
   }
-  if (!stmts.length) {
-    return Response.json({ error: "No valid rows with an id and recognized fields were found" }, { status: 400 });
+
+  const attempted = rows.length;
+  let updated = 0;
+  const needsFallback = [];
+
+  // Phase 1: match by id (works for re-importing a backup exported from this
+  // same database, where ids are the real D1 UUIDs).
+  const byId = rows.filter((r) => r && r.id);
+  if (byId.length) {
+    const stmts = [];
+    const stmtRows = [];
+    for (const r of byId) {
+      const { sets, values } = buildSets(r, []);
+      if (!sets.length) continue;
+      values.push(r.id);
+      stmts.push(env.DB.prepare(`UPDATE tracker_rows SET ${sets.join(",")} WHERE id = ?`).bind(...values));
+      stmtRows.push(r);
+    }
+    if (stmts.length) {
+      const results = await env.DB.batch(stmts);
+      results.forEach((res, i) => {
+        if (res.meta && res.meta.changes > 0) updated++;
+        else needsFallback.push(stmtRows[i]);
+      });
+    }
   }
-  const results = await env.DB.batch(stmts);
-  const updated = results.reduce((sum, r) => sum + (r.meta && r.meta.changes || 0), 0);
-  return Response.json({ attempted: stmts.length, updated });
+
+  // Phase 2: fall back to matching by Account # + Template for any row whose
+  // id didn't match an existing record -- this is what makes it possible to
+  // import an export from a *different* instance of this tracker (e.g. the
+  // Claude.ai version, which uses its own simple numeric ids that will never
+  // match this database's real UUIDs). Account + Template is a meaningful,
+  // shared identifier as long as the target database already has a matching
+  // row for that combination (e.g. from "Load starter data").
+  const withoutId = rows.filter((r) => r && !r.id);
+  const fallbackCandidates = [...withoutId, ...needsFallback].filter((r) => r.account && r.template);
+  if (fallbackCandidates.length) {
+    const stmts = [];
+    for (const r of fallbackCandidates) {
+      const { sets, values } = buildSets(r, ["account", "template"]);
+      if (!sets.length) continue;
+      values.push(r.account, r.template);
+      stmts.push(env.DB.prepare(`UPDATE tracker_rows SET ${sets.join(",")} WHERE account = ? AND template = ?`).bind(...values));
+    }
+    if (stmts.length) {
+      const results = await env.DB.batch(stmts);
+      results.forEach((res) => {
+        if (res.meta && res.meta.changes > 0) updated++;
+      });
+    }
+  }
+
+  if (!attempted) {
+    return Response.json({ error: "No rows in the uploaded file" }, { status: 400 });
+  }
+  return Response.json({ attempted, updated });
 }

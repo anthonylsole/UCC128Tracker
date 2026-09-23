@@ -9,7 +9,8 @@ const FIELD_MAP = {
   prodStart: "prod_start",
   prodEnd: "prod_end",
   testingRequired: "testing_required",
-  testResource: "test_resource",
+  testResource: "test_resource",           // shown as "Order Resource" in the tracker
+  inventoryResource: "inventory_resource",
   opsReviewer: "ops_reviewer",
   status: "status",
   approvalScope: "approval_scope",
@@ -17,6 +18,13 @@ const FIELD_MAP = {
   notes: "notes",
 };
 const COLUMNS = ["id", ...Object.values(FIELD_MAP)];
+
+// A blank line date means "inherit the go-live wave's date", so store it as NULL.
+const DATE_KEYS = ["testStart", "testEnd", "prodStart", "prodEnd"];
+function toDbValue(jsKey, value) {
+  if (DATE_KEYS.includes(jsKey) && (value === "" || value === undefined)) return null;
+  return value;
+}
 
 function rowToJson(dbRow) {
   const out = { id: dbRow.id };
@@ -55,7 +63,7 @@ export async function updateRow(env, id, body) {
   for (const [jsKey, col] of Object.entries(FIELD_MAP)) {
     if (Object.prototype.hasOwnProperty.call(body, jsKey)) {
       sets.push(`${col} = ?`);
-      values.push(body[jsKey]);
+      values.push(toDbValue(jsKey, body[jsKey]));
     }
   }
   if (!sets.length) {
@@ -105,7 +113,7 @@ export async function bulkUpdateRows(env, rows) {
       if (excludeKeys.includes(jsKey)) continue;
       if (Object.prototype.hasOwnProperty.call(r, jsKey)) {
         sets.push(`${col} = ?`);
-        values.push(r[jsKey]);
+        values.push(toDbValue(jsKey, r[jsKey]));
       }
     }
     return { sets, values };

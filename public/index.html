@@ -495,6 +495,7 @@ function renderWaveCalendarHtml(){
 const TRACKER_COLUMNS = [
   {key:'account', label:'Account #', sort:true},
   {key:'customer', label:'Customer', sort:true},
+  {key:'co', label:'CO #', sort:true},
   {key:'wave', label:'Go-Live Wave', sort:true},
   {key:'template', label:'Template', sort:true},
   {key:'testStart', label:'Test Start', sort:true, group:'test'},
@@ -527,7 +528,7 @@ function getFilteredSortedRecords(){
     }
     if(f.search){
       const s = f.search.toLowerCase();
-      if(!(r.account.toLowerCase().includes(s) || r.customer.toLowerCase().includes(s) || r.template.toLowerCase().includes(s))) return false;
+      if(!(r.account.toLowerCase().includes(s) || r.customer.toLowerCase().includes(s) || (r.co||'').toLowerCase().includes(s) || r.template.toLowerCase().includes(s))) return false;
     }
     return true;
   });
@@ -565,7 +566,7 @@ function getCascadedSubset(excludeKey){
     }
     if(f.search){
       const s = f.search.toLowerCase();
-      if(!(r.account.toLowerCase().includes(s) || r.customer.toLowerCase().includes(s) || r.template.toLowerCase().includes(s))) return false;
+      if(!(r.account.toLowerCase().includes(s) || r.customer.toLowerCase().includes(s) || (r.co||'').toLowerCase().includes(s) || r.template.toLowerCase().includes(s))) return false;
     }
     return true;
   });
@@ -625,6 +626,7 @@ function renderTracker(){
     return `<tr data-id="${r.id}" class="${approvedClass}">
       <td>${escapeHtml(r.account)}</td>
       <td style="font-weight:600;">${escapeHtml(r.customer)}</td>
+      <td class="editable-col">${textCell(r,'co')}</td>
       <td class="editable-col ${r.wave==='UNKNOWN'?'wave-unknown':''}">${waveCell(r)}</td>
       <td>${escapeHtml(r.template)}</td>
       <td class="editable-col col-group-start">${dateCell(r,'testStart')}</td>
@@ -655,7 +657,7 @@ function renderTracker(){
     <h1 class="page-title">Testing Tracker</h1>
     <p class="page-desc">${records.length} customer / template / go-live wave combinations. Edit any highlighted field directly.</p>
     <div class="toolbar">
-      <input class="tf-input tf-search" id="f-search" placeholder="Search account, customer, or template&hellip;" value="${escapeHtml(trackerFilters.search)}">
+      <input class="tf-input tf-search" id="f-search" placeholder="Search account, customer, CO #, or template&hellip;" value="${escapeHtml(trackerFilters.search)}">
       <select class="tf-select" id="f-wave"><option value="">All Go-Live Waves</option>${waves.map(w=>`<option value="${escapeHtml(w)}" ${trackerFilters.wave===w?'selected':''}>${escapeHtml(w)}</option>`).join('')}</select>
       <select class="tf-select" id="f-template"><option value="">All Templates</option>${templates.map(t=>`<option value="${escapeHtml(t)}" ${trackerFilters.template===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select>
       <select class="tf-select" id="f-testing-required">
@@ -1289,7 +1291,7 @@ window.addEventListener('resize', ()=>{ if(currentTab==='tracker' && currentTrac
 
 /* Copy for Email */
 const EMAIL_COLUMNS = [
-  {label:'Account #', get:r=>r.account}, {label:'Customer', get:r=>r.customer}, {label:'Go-Live Wave', get:r=>r.wave},
+  {label:'Account #', get:r=>r.account}, {label:'Customer', get:r=>r.customer}, {label:'CO #', get:r=>r.co}, {label:'Go-Live Wave', get:r=>r.wave},
   {label:'Template', get:r=>r.template}, {label:'Test Start', get:r=>fmtDate(effDate(r,'testStart'))}, {label:'Test End', get:r=>fmtDate(effDate(r,'testEnd'))},
   {label:'Prod Start', get:r=>fmtDate(effDate(r,'prodStart'))}, {label:'Prod End', get:r=>fmtDate(effDate(r,'prodEnd'))}, {label:'Testing Req.', get:r=>r.testingRequired},
   {label:'Order Resource', get:r=>r.testResource}, {label:'Inventory Resource', get:r=>r.inventoryResource}, {label:'Ops Reviewer', get:r=>r.opsReviewer}, {label:'Status', get:r=>effectiveStatus(r)},

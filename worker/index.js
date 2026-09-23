@@ -1,6 +1,7 @@
 import { listRows, createRow, updateRow, bootstrapRows, bulkUpdateRows } from "./rows.js";
 import { listMappings, updateMapping, bootstrapMappings } from "./mappings.js";
 import { sampleKey, listSamples, getSample, putSample, deleteSample } from "./samples.js";
+import { listWaves, updateWave } from "./waves.js";
 import { checkAuth, unauthorizedResponse, resolveSitePasswordForDiagnostics } from "./auth.js";
 
 export default {
@@ -48,6 +49,14 @@ export default {
         return await bulkUpdateRows(env, body);
       }
 
+      if (path === "/api/waves" && method === "GET") {
+        return await listWaves(env);
+      }
+      if (path === "/api/waves" && method === "PATCH") {
+        const body = await request.json();
+        return await updateWave(env, body);
+      }
+
       if (path === "/api/mappings" && method === "GET") {
         return await listMappings(env);
       }
@@ -81,5 +90,3 @@ export default {
     }
   },
 };
-
-

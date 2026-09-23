@@ -2,6 +2,7 @@
 const FIELD_MAP = {
   account: "account",
   customer: "customer",
+  co: "co",                                // CO #(s) shipping for this account/template
   wave: "wave",
   template: "template",
   testStart: "test_start",

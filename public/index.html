@@ -502,7 +502,8 @@ const TRACKER_COLUMNS = [
   {key:'prodStart', label:'Prod Start', sort:true, group:'prod'},
   {key:'prodEnd', label:'Prod End', sort:true},
   {key:'testingRequired', label:'Testing Req.', sort:true},
-  {key:'testResource', label:'Test Resource'},
+  {key:'testResource', label:'Order Resource'},
+  {key:'inventoryResource', label:'Inventory Resource'},
   {key:'opsReviewer', label:'Ops Reviewer'},
   {key:'status', label:'Status', sort:true},
   {key:'approvalScope', label:'Approval Scope'},
@@ -632,6 +633,7 @@ function renderTracker(){
       <td class="editable-col">${dateCell(r,'prodEnd')}</td>
       <td class="editable-col">${selectCell(r,'testingRequired',YN_OPTIONS,true)}</td>
       <td class="editable-col">${textCell(r,'testResource')}</td>
+      <td class="editable-col">${textCell(r,'inventoryResource')}</td>
       <td class="editable-col">${textCell(r,'opsReviewer')}</td>
       <td class="editable-col">${selectCell(r,'status',STATUS_OPTIONS,false)}</td>
       <td class="editable-col">${selectCell(r,'approvalScope',SCOPE_OPTIONS,false)}</td>
@@ -1290,7 +1292,7 @@ const EMAIL_COLUMNS = [
   {label:'Account #', get:r=>r.account}, {label:'Customer', get:r=>r.customer}, {label:'Go-Live Wave', get:r=>r.wave},
   {label:'Template', get:r=>r.template}, {label:'Test Start', get:r=>fmtDate(effDate(r,'testStart'))}, {label:'Test End', get:r=>fmtDate(effDate(r,'testEnd'))},
   {label:'Prod Start', get:r=>fmtDate(effDate(r,'prodStart'))}, {label:'Prod End', get:r=>fmtDate(effDate(r,'prodEnd'))}, {label:'Testing Req.', get:r=>r.testingRequired},
-  {label:'Test Resource', get:r=>r.testResource}, {label:'Ops Reviewer', get:r=>r.opsReviewer}, {label:'Status', get:r=>effectiveStatus(r)},
+  {label:'Order Resource', get:r=>r.testResource}, {label:'Inventory Resource', get:r=>r.inventoryResource}, {label:'Ops Reviewer', get:r=>r.opsReviewer}, {label:'Status', get:r=>effectiveStatus(r)},
   {label:'Approval Scope', get:r=>r.approvalScope}, {label:'Test PO(s)', get:r=>r.testPOs}, {label:'Notes / Feedback', get:r=>r.notes},
 ];
 function describeActiveFilters(){

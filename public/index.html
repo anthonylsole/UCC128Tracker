@@ -86,6 +86,7 @@ tbody tr:nth-child(even){background:#FCFCFD;}
 tbody tr.row-approved td{background:#E8F8EC;}
 .cell-input,.cell-select,.cell-date{width:100%;font-family:inherit;font-size:12px;border:1px solid transparent;border-radius:6px;padding:5px 7px;background:transparent;color:var(--text);outline:none;min-width:110px;}
 .cell-select{min-width:168px;}
+.cell-wrap{display:block;resize:none;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.35;min-width:140px;}
 .cell-input:hover,.cell-select:hover,.cell-date:hover{border-color:var(--border-strong);background:#fff;}
 .cell-input:focus,.cell-select:focus,.cell-date:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-light);}
 .editable-col{background:#FCFEFD;}
@@ -575,6 +576,8 @@ function cascadedOptions(field, excludeKey){
   return [...new Set(getCascadedSubset(excludeKey).map(r=>r[field]).filter(Boolean))].sort();
 }
 
+function wrapCell(r, field){ return `<textarea class="cell-input cell-wrap" rows="1" data-field="${field}">${escapeHtml(r[field])}</textarea>`; }
+function autosizeWrapCell(el){ el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
 function textCell(r, field){ return `<input class="cell-input" type="text" data-field="${field}" value="${escapeHtml(r[field])}">`; }
 function resetBtnHtml(r, field){
   return `<button class="reset-wave-btn" data-reset="${field}" title="Reset to wave date (${fmtDate(waveDate(r.wave, field))})">&#8634;</button>`;
@@ -626,7 +629,7 @@ function renderTracker(){
     return `<tr data-id="${r.id}" class="${approvedClass}">
       <td>${escapeHtml(r.account)}</td>
       <td style="font-weight:600;">${escapeHtml(r.customer)}</td>
-      <td class="editable-col">${textCell(r,'orderType')}</td>
+      <td class="editable-col">${wrapCell(r,'orderType')}</td>
       <td class="editable-col">${textCell(r,'co')}</td>
       <td class="editable-col ${r.wave==='UNKNOWN'?'wave-unknown':''}">${waveCell(r)}</td>
       <td>${escapeHtml(r.template)}</td>
@@ -687,6 +690,7 @@ function renderTracker(){
     </div>
   `;
   bindTrackerEvents();
+  document.querySelectorAll('#pageTracker .cell-wrap').forEach(autosizeWrapCell);
 
   if(savedScrollLeft){
     const newWrap = document.querySelector('#pageTracker .table-wrap');
@@ -787,6 +791,13 @@ function bindTrackerEvents(){
     rec[field] = e.target.value;
     try{ await apiPatch(`/api/rows/${rec.id}`, {[field]: rec[field]}); }
     catch(err){ showToast('Save failed \u2014 check your connection'); }
+  });
+
+  page.querySelector('tbody').addEventListener('input', e=>{
+    if(e.target.classList.contains('cell-wrap')) autosizeWrapCell(e.target);
+  });
+  page.querySelector('tbody').addEventListener('keydown', e=>{
+    if(e.key==='Enter' && e.target.classList.contains('cell-wrap')){ e.preventDefault(); e.target.blur(); }
   });
 
   bindFloatingScroll(page);

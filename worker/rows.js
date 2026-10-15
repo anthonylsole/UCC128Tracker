@@ -2,7 +2,8 @@
 const FIELD_MAP = {
   account: "account",
   customer: "customer",
-  co: "co",                                // CO #(s) shipping for this account/template
+  orderType: "order_type",
+  co: "co",                                // shown as "Testing Orders" in the tracker
   wave: "wave",
   template: "template",
   testStart: "test_start",
@@ -15,7 +16,7 @@ const FIELD_MAP = {
   opsReviewer: "ops_reviewer",
   status: "status",
   approvalScope: "approval_scope",
-  testPOs: "test_pos",
+  testPOs: "test_pos",                     // no longer shown in the tracker; kept so existing data is preserved
   notes: "notes",
 };
 const COLUMNS = ["id", ...Object.values(FIELD_MAP)];

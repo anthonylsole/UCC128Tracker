@@ -74,6 +74,17 @@ body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;ba
 .tf-input,.tf-select{font-family:inherit;font-size:12.5px;border:1px solid var(--border-strong);border-radius:7px;padding:7px 10px;background:#fff;color:var(--text);outline:none;}
 .tf-search{min-width:220px;flex:1;max-width:320px;}
 .toolbar-spacer{flex:1;}
+.ms-wrap{position:relative;}
+.ms-btn{cursor:pointer;min-width:168px;max-width:240px;text-align:left;padding-right:28px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23444' stroke-width='1.6' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
+.ms-btn.ms-active{border-color:var(--accent);background-color:var(--accent-light);color:var(--accent-dark);font-weight:600;}
+.ms-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:50;min-width:240px;background:#fff;border:1px solid var(--border-strong);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:6px;}
+.ms-actions{display:flex;justify-content:space-between;padding:4px 6px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+.ms-actions button{border:none;background:none;color:var(--accent-dark);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px;}
+.ms-list{max-height:320px;overflow-y:auto;}
+.ms-opt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+.ms-opt:hover{background:var(--accent-light);}
+.ms-opt input{accent-color:var(--accent);margin:0;}
+.ms-empty{padding:8px;font-size:12px;color:var(--text-2);}
 .result-count{font-size:12px;color:var(--text-3);font-weight:600;white-space:nowrap;}
 .chips-row{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 14px;}
 .chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-light);color:var(--accent-dark);border:1px solid var(--accent);border-radius:100px;padding:4px 6px 4px 12px;font-size:12px;font-weight:600;}
@@ -231,7 +242,8 @@ const YN_OPTIONS = ["","Yes","No"];
 
 let records = [];
 let currentTab = 'dashboard';
-let trackerFilters = { search:'', wave:'', template:'', status:'', customer:'', testingRequired:'' };
+let trackerFilters = { search:'', wave:[], template:'', status:'', customer:'', testingRequired:'' };
+let waveMenuOpen = false;
 let trackerSort = { key:'account', dir:'asc' };
 let summarySearchTerm = '';
 let templateDetailView = null;
@@ -359,7 +371,10 @@ function switchTab(tab, presetFilter){
   renderNav();
   if(tab==='dashboard') renderDashboard();
   if(tab==='tracker'){
-    if(presetFilter) trackerFilters = {search:'', wave:'', template:'', status:'', customer:'', testingRequired:'', ...presetFilter};
+    if(presetFilter){
+      trackerFilters = {search:'', wave:[], template:'', status:'', customer:'', testingRequired:'', ...presetFilter};
+      if(!Array.isArray(trackerFilters.wave)) trackerFilters.wave = trackerFilters.wave ? [trackerFilters.wave] : [];
+    }
     renderTracker();
   }
   if(tab==='byCustomer') renderSummary('customer','pageByCustomer','Customer','By Customer','Testing progress rolled up by customer account.');
@@ -516,7 +531,7 @@ const TRACKER_COLUMNS = [
 function getFilteredSortedRecords(){
   const f = trackerFilters;
   let list = records.filter(r=>{
-    if(f.wave && r.wave!==f.wave) return false;
+    if(f.wave.length && !f.wave.includes(r.wave)) return false;
     if(f.template && r.template!==f.template) return false;
     if(f.customer && r.customer!==f.customer) return false;
     if(f.testingRequired){
@@ -554,7 +569,7 @@ function getFilteredSortedRecords(){
 function getCascadedSubset(excludeKey){
   const f = trackerFilters;
   return records.filter(r=>{
-    if(excludeKey!=='wave' && f.wave && r.wave!==f.wave) return false;
+    if(excludeKey!=='wave' && f.wave.length && !f.wave.includes(r.wave)) return false;
     if(excludeKey!=='template' && f.template && r.template!==f.template) return false;
     if(excludeKey!=='customer' && f.customer && r.customer!==f.customer) return false;
     if(excludeKey!=='testingRequired' && f.testingRequired){
@@ -604,6 +619,50 @@ function waveCell(r){
   return `<select class="cell-select" data-field="wave">${opts}<option value="__new_wave__">+ Create new wave&hellip;</option></select>`;
 }
 
+/* Go-Live Wave multi-select: a button that opens a checkbox list. */
+function waveMultiSelectHtml(available){
+  const sel = trackerFilters.wave;
+  const opts = [...new Set([...available, ...sel])].sort();
+  const label = !sel.length ? 'All Go-Live Waves' : sel.length===1 ? sel[0] : `${sel.length} Go-Live Waves`;
+  return `<div class="ms-wrap" id="f-wave">
+    <button type="button" class="tf-select ms-btn ${sel.length?'ms-active':''}" aria-haspopup="listbox" aria-expanded="${waveMenuOpen}">${escapeHtml(label)}</button>
+    <div class="ms-panel ${waveMenuOpen?'':'hidden'}" role="listbox" aria-multiselectable="true">
+      <div class="ms-actions"><button type="button" data-ms="all">Select all</button><button type="button" data-ms="none">Clear</button></div>
+      <div class="ms-list">${opts.map(w=>`<label class="ms-opt"><input type="checkbox" value="${escapeHtml(w)}" ${sel.includes(w)?'checked':''}> <span>${escapeHtml(w)}</span></label>`).join('') || '<div class="ms-empty">No waves match the other filters</div>'}</div>
+    </div>
+  </div>`;
+}
+function bindWaveMultiSelect(page){
+  const wrap = page.querySelector('#f-wave');
+  const list = wrap.querySelector('.ms-list');
+  const rerenderKeepingScroll = ()=>{
+    const top = list.scrollTop;
+    renderTracker();
+    const newList = document.querySelector('#f-wave .ms-list'); if(newList) newList.scrollTop = top;
+  };
+  wrap.querySelector('.ms-btn').addEventListener('click', ()=>{ waveMenuOpen = !waveMenuOpen; wrap.querySelector('.ms-panel').classList.toggle('hidden', !waveMenuOpen); wrap.querySelector('.ms-btn').setAttribute('aria-expanded', waveMenuOpen); });
+  list.addEventListener('change', e=>{
+    const w = e.target.value;
+    trackerFilters.wave = e.target.checked ? [...trackerFilters.wave, w] : trackerFilters.wave.filter(x=>x!==w);
+    rerenderKeepingScroll();
+  });
+  wrap.querySelector('[data-ms=all]').addEventListener('click', ()=>{
+    trackerFilters.wave = [...new Set([...trackerFilters.wave, ...[...list.querySelectorAll('input')].map(i=>i.value)])];
+    rerenderKeepingScroll();
+  });
+  wrap.querySelector('[data-ms=none]').addEventListener('click', ()=>{ trackerFilters.wave = []; rerenderKeepingScroll(); });
+}
+// Close the wave menu when clicking anywhere outside it, or pressing Escape.
+document.addEventListener('click', e=>{
+  // (A click inside the menu can re-render it, leaving e.target detached -- that's still "inside".)
+  if(!waveMenuOpen || !e.target.isConnected || e.target.closest('#f-wave')) return;
+  waveMenuOpen = false;
+  const panel = document.querySelector('#f-wave .ms-panel'); if(panel) panel.classList.add('hidden');
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && waveMenuOpen){ waveMenuOpen = false; const panel = document.querySelector('#f-wave .ms-panel'); if(panel) panel.classList.add('hidden'); }
+});
+
 function renderTracker(){
   const prevWrap = document.querySelector('#pageTracker .table-wrap');
   const savedScrollLeft = prevWrap ? prevWrap.scrollLeft : 0;
@@ -649,19 +708,19 @@ function renderTracker(){
 
   const chips = [];
   if(trackerFilters.search) chips.push({k:'search', label:`Search: "${trackerFilters.search}"`});
-  if(trackerFilters.wave) chips.push({k:'wave', label:`Wave: ${trackerFilters.wave}`});
+  trackerFilters.wave.forEach(w=> chips.push({k:'wave', v:w, label:`Wave: ${w}`}));
   if(trackerFilters.template) chips.push({k:'template', label:`Template: ${trackerFilters.template}`});
   if(trackerFilters.testingRequired) chips.push({k:'testingRequired', label:`Testing Req.: ${trackerFilters.testingRequired==='__BLANK__'?'Not Set':trackerFilters.testingRequired}`});
   if(trackerFilters.status) chips.push({k:'status', label:`Status: ${trackerFilters.status}`});
   if(trackerFilters.customer) chips.push({k:'customer', label:`Customer: ${trackerFilters.customer}`});
-  const chipsHtml = chips.map(c=>`<span class="chip">${escapeHtml(c.label)}<button class="chip-x" data-k="${c.k}">&times;</button></span>`).join('');
+  const chipsHtml = chips.map(c=>`<span class="chip">${escapeHtml(c.label)}<button class="chip-x" data-k="${c.k}" data-v="${escapeHtml(c.v||'')}">&times;</button></span>`).join('');
 
   document.getElementById('pageTracker').innerHTML = `
     <h1 class="page-title">Testing Tracker</h1>
     <p class="page-desc">${records.length} customer / template / go-live wave combinations. Edit any highlighted field directly.</p>
     <div class="toolbar">
       <input class="tf-input tf-search" id="f-search" placeholder="Search account, customer, testing orders, or template&hellip;" value="${escapeHtml(trackerFilters.search)}">
-      <select class="tf-select" id="f-wave"><option value="">All Go-Live Waves</option>${waves.map(w=>`<option value="${escapeHtml(w)}" ${trackerFilters.wave===w?'selected':''}>${escapeHtml(w)}</option>`).join('')}</select>
+      ${waveMultiSelectHtml(waves)}
       <select class="tf-select" id="f-template"><option value="">All Templates</option>${templates.map(t=>`<option value="${escapeHtml(t)}" ${trackerFilters.template===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select>
       <select class="tf-select" id="f-testing-required">
         <option value="">All (Testing Req.)</option>
@@ -676,7 +735,7 @@ function renderTracker(){
       <span class="result-count">${filtered.length} of ${records.length} combos</span>
     </div>
     ${chips.length ? `<div class="chips-row">${chipsHtml}</div>` : ''}
-    ${trackerFilters.wave ? waveDatesStripHtml(trackerFilters.wave) : ''}
+    ${trackerFilters.wave.map(w=>waveDatesStripHtml(w, trackerFilters.wave.length>1)).join('')}
     <div class="table-wrap"><table><thead><tr>${headHtml}</tr></thead>
       <tbody>${bodyHtml || `<tr><td colspan="${TRACKER_COLUMNS.length}" class="empty-state">No combinations match these filters.</td></tr>`}</tbody>
     </table></div>
@@ -702,13 +761,17 @@ function renderTracker(){
 function bindTrackerEvents(){
   const page = document.getElementById('pageTracker');
   page.querySelector('#f-search').addEventListener('input', e=>{ trackerFilters.search = e.target.value; renderTracker(); });
-  page.querySelector('#f-wave').addEventListener('change', e=>{ trackerFilters.wave = e.target.value; renderTracker(); });
+  bindWaveMultiSelect(page);
   page.querySelector('#f-template').addEventListener('change', e=>{ trackerFilters.template = e.target.value; renderTracker(); });
   page.querySelector('#f-testing-required').addEventListener('change', e=>{ trackerFilters.testingRequired = e.target.value; renderTracker(); });
   page.querySelector('#f-status').addEventListener('change', e=>{ trackerFilters.status = e.target.value; renderTracker(); });
-  page.querySelector('#f-clear').addEventListener('click', ()=>{ trackerFilters = {search:'',wave:'',template:'',status:'',customer:'',testingRequired:''}; renderTracker(); });
+  page.querySelector('#f-clear').addEventListener('click', ()=>{ trackerFilters = {search:'',wave:[],template:'',status:'',customer:'',testingRequired:''}; renderTracker(); });
   page.querySelector('#copy-email-btn').addEventListener('click', copyFilteredViewForEmail);
-  page.querySelectorAll('.chip-x').forEach(btn=> btn.addEventListener('click', ()=>{ trackerFilters[btn.dataset.k] = ''; renderTracker(); }));
+  page.querySelectorAll('.chip-x').forEach(btn=> btn.addEventListener('click', ()=>{
+    if(btn.dataset.k==='wave') trackerFilters.wave = trackerFilters.wave.filter(w=>w!==btn.dataset.v);
+    else trackerFilters[btn.dataset.k] = '';
+    renderTracker();
+  }));
   page.querySelectorAll('thead th[data-sortkey]').forEach(th=>{
     th.addEventListener('click', ()=>{
       const key = th.dataset.sortkey; if(!key) return;
@@ -901,11 +964,11 @@ function refreshDateCells(tr, rec){
   });
 }
 
-function waveDatesStripHtml(wave){
+function waveDatesStripHtml(wave, showName){
   const labels = {testStart:'Test Start', testEnd:'Test End', prodStart:'Prod Start', prodEnd:'Prod End'};
   const n = overrideCount(wave);
   return `<div class="wave-dates-strip" data-wave="${escapeHtml(wave)}">
-    <strong style="font-size:13px;">Wave dates</strong>
+    <strong style="font-size:13px;">${showName ? `${escapeHtml(wave)} dates` : 'Wave dates'}</strong>
     ${DATE_FIELDS.map(f=>`<label>${labels[f]} <input type="date" class="wave-date-input" data-wave-field="${f}" value="${waveDate(wave,f)}"></label>`).join('')}
     <span class="ovr-count">${n ? `${n} line${n===1?'':'s'} with overrides` : 'No line overrides'}</span>
     ${n ? `<button class="btn btn-outline btn-sm" data-clear-overrides="1">Reset all lines to wave dates</button>` : ''}
@@ -1311,7 +1374,7 @@ const EMAIL_COLUMNS = [
 function describeActiveFilters(){
   const f = trackerFilters, parts = [];
   if(f.search) parts.push(`Search "${f.search}"`);
-  if(f.wave) parts.push(`Go-Live Wave: ${f.wave}`);
+  if(f.wave.length) parts.push(`Go-Live Wave${f.wave.length>1?'s':''}: ${f.wave.join(', ')}`);
   if(f.template) parts.push(`Template: ${f.template}`);
   if(f.status) parts.push(`Status: ${f.status}`);
   if(f.customer) parts.push(`Customer: ${f.customer}`);

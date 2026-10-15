@@ -735,7 +735,6 @@ function renderTracker(){
       <span class="result-count">${filtered.length} of ${records.length} combos</span>
     </div>
     ${chips.length ? `<div class="chips-row">${chipsHtml}</div>` : ''}
-    ${trackerFilters.wave.map(w=>waveDatesStripHtml(w, trackerFilters.wave.length>1)).join('')}
     <div class="table-wrap"><table><thead><tr>${headHtml}</tr></thead>
       <tbody>${bodyHtml || `<tr><td colspan="${TRACKER_COLUMNS.length}" class="empty-state">No combinations match these filters.</td></tr>`}</tbody>
     </table></div>
@@ -781,7 +780,6 @@ function bindTrackerEvents(){
     });
   });
 
-  bindWaveDateInputs(page, renderTracker);
   page.querySelector('tbody').addEventListener('click', async e=>{
     const btn = e.target.closest('[data-reset]'); if(!btn) return;
     const tr = btn.closest('tr'); const rec = records.find(r=>r.id===tr.dataset.id); if(!rec) return;
@@ -964,11 +962,11 @@ function refreshDateCells(tr, rec){
   });
 }
 
-function waveDatesStripHtml(wave, showName){
+function waveDatesStripHtml(wave){
   const labels = {testStart:'Test Start', testEnd:'Test End', prodStart:'Prod Start', prodEnd:'Prod End'};
   const n = overrideCount(wave);
   return `<div class="wave-dates-strip" data-wave="${escapeHtml(wave)}">
-    <strong style="font-size:13px;">${showName ? `${escapeHtml(wave)} dates` : 'Wave dates'}</strong>
+    <strong style="font-size:13px;">Wave dates</strong>
     ${DATE_FIELDS.map(f=>`<label>${labels[f]} <input type="date" class="wave-date-input" data-wave-field="${f}" value="${waveDate(wave,f)}"></label>`).join('')}
     <span class="ovr-count">${n ? `${n} line${n===1?'':'s'} with overrides` : 'No line overrides'}</span>
     ${n ? `<button class="btn btn-outline btn-sm" data-clear-overrides="1">Reset all lines to wave dates</button>` : ''}

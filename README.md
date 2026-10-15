@@ -1,49 +1,70 @@
-# UCC128 Tracker — Cloudflare Pages Project
+# UCC128 Tracker
 
-This is the project scaffold for hosting the UCC128 Label Rollout Tracker on
-Cloudflare Pages, backed by D1 (database) and R2 (label sample file storage).
+The UCC128 Label Rollout Tracker, hosted as a Cloudflare Worker with static
+assets. Data lives in D1 (database) and label sample files in R2.
 
-## Setup
+## How it fits together
 
-Follow `GRANULAR_SETUP_GUIDE.md` for the full step-by-step walkthrough. Short
-version, once you have `wrangler` installed and are logged in:
+All requests go to the Worker first (`run_worker_first = true` in
+`wrangler.toml`). The Worker checks the shared site password, handles any
+`/api/*` route, and serves everything else from `public/`.
+
+```
+UCC128Tracker/
+├── wrangler.toml      # Worker config: D1 (DB) and R2 (SAMPLES) bindings
+├── schema.sql         # Table definitions for the D1 database
+├── public/
+│   └── index.html     # The tracker app
+└── worker/
+    ├── index.js       # Entry point: auth check and API routing
+    ├── auth.js        # Shared-password (Basic Auth) gate
+    ├── rows.js        # /api/rows, /api/bootstrap, /api/rows/bulk-update
+    ├── waves.js       # /api/waves (go-live dates per wave)
+    ├── mappings.js    # /api/mappings (label field mappings)
+    └── samples.js     # /api/samples (label sample files in R2)
+```
+
+## Setup from scratch
+
+With `wrangler` installed and logged in:
 
 ```bash
-# 1. Create your D1 database (if you haven't already)
+# 1. Create the D1 database, then copy the database_id it prints into wrangler.toml
 wrangler d1 create ucc128-tracker-db
-# Copy the database_id it prints into wrangler.toml
 
-# 2. Create your R2 bucket (if you haven't already)
+# 2. Create the R2 bucket for label samples
 wrangler r2 bucket create ucc128-label-samples
 
 # 3. Load the schema
 wrangler d1 execute ucc128-tracker-db --remote --file=schema.sql
 
-# 4. Test locally
-wrangler pages dev public
-# then visit http://127.0.0.1:8788/api/ping — should return {"status":"ok","rowCount":0}
+# 4. Set the site password (you'll be prompted for the value)
+wrangler secret put SITE_PASSWORD
 
 # 5. Deploy
-wrangler pages deploy public --project-name=ucc128-tracker
+wrangler deploy
 ```
 
-## Project structure 
+If the Worker is connected to this repo in the Cloudflare dashboard, pushing to
+`main` deploys it automatically instead of step 5.
 
-```
-ucc128-tracker/
-├── wrangler.toml          # Cloudflare config — bindings for D1 + R2
-├── schema.sql             # Database table definitions
-├── public/                # The actual website (served as-is)
-│   └── index.html
-└── functions/api/         # Serverless API endpoints (Cloudflare Pages Functions)
-    └── ping.js            # Test endpoint confirming DB connectivity
+## Local development
+
+```bash
+wrangler dev
 ```
 
-## Status
+Then open http://localhost:8787. If `SITE_PASSWORD` isn't set locally, the
+password check is skipped. To test it locally, put
+`SITE_PASSWORD=yourpassword` in a `.dev.vars` file (and keep that file out of
+git).
 
-- [x] Project scaffolded, git repo initialized
-- [ ] `wrangler.toml` filled in with real `database_id`
-- [ ] Schema loaded into live D1 database
-- [ ] Local test (`/api/ping`) confirmed working
-- [ ] Deployed to Cloudflare Pages
-- [ ] Real tracker application + API endpoints built (not yet started)
+`/api/ping` returns `{"status":"ok","rowCount":N}` and is a quick way to check
+that the Worker can reach the database.
+
+## Notes
+
+`GRANULAR_SETUP_GUIDE.md` is the original walkthrough from when this project
+started on Cloudflare Pages. The account setup and D1/R2 steps still apply, but
+the Pages-specific parts (`functions/api/`, `wrangler pages` commands) were
+replaced by the Worker setup above.

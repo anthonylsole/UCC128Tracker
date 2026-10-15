@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS tracker_rows (
   id TEXT PRIMARY KEY,
   account TEXT,
   customer TEXT,
+  order_type TEXT,
   wave TEXT,
   template TEXT,
   test_start TEXT,
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS tracker_rows (
   ops_reviewer TEXT,
   status TEXT DEFAULT 'Not Started',
   approval_scope TEXT DEFAULT 'This Combo Only',
-  test_pos TEXT,
+  test_pos TEXT,          -- no longer shown in the tracker
   notes TEXT,
   inventory_resource TEXT,
   co TEXT
